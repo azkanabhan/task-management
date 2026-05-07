@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\CreateActivityLogJob;
 use App\Models\ActivityLog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Model;
@@ -14,15 +15,15 @@ class ActivityLogService
         string $description,
         ?Model $subject = null,
         array $properties = []
-    ): ActivityLog {
-        return ActivityLog::query()->create([
-            'user_id' => $userId,
-            'action' => $action,
-            'description' => $description,
-            'subject_type' => $subject ? $subject::class : null,
-            'subject_id' => $subject?->getKey(),
-            'properties' => empty($properties) ? null : $properties,
-        ]);
+    ): void {
+        CreateActivityLogJob::dispatch(
+            userId: $userId,
+            action: $action,
+            description: $description,
+            subjectType: $subject ? $subject::class : null,
+            subjectId: $subject ? (int) $subject->getKey() : null,
+            properties: empty($properties) ? null : $properties,
+        )->onQueue('activity-logs');
     }
 
     public function getLogsForUser(int $userId, int $perPage = 20): LengthAwarePaginator
