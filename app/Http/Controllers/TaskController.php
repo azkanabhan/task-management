@@ -2,12 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Task;
-use App\Models\TaskCategory;
+use App\Services\ActivityLogService;
+use App\Services\TaskService;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
+    public function __construct(
+        private readonly TaskService $taskService,
+        private readonly ActivityLogService $activityLogService,
+    ) {
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -17,15 +23,14 @@ class TaskController extends Controller
         $status = $request->query('status');
         $search = $request->query('search');
 
-        $tasks = Task::query()
-            ->where('user_id', auth()->id())
-            ->filter($categoryId, $status, $search)
-            ->with('category')
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
+        $tasks = $this->taskService->getDashboardTasks(
+            userId: auth()->id(),
+            categoryId: $categoryId,
+            status: $status,
+            search: $search,
+        );
 
-        $categories = TaskCategory::query()->orderBy('name')->get();
+        $categories = $this->taskService->getAllCategories();
 
         return view('dashboard', compact('tasks', 'categories', 'categoryId', 'status', 'search'));
     }
@@ -35,9 +40,11 @@ class TaskController extends Controller
      */
     public function create()
     {
-        $categories = TaskCategory::query()->orderBy('name')->get();
+        $categories = $this->taskService->getAllCategories();
+        $users = $this->taskService->getAssignableUsers();
+        $teams = $this->taskService->getUserTeams((int) auth()->id());
 
-        return view('tasks.create', compact('categories'));
+        return view('tasks.create', compact('categories', 'users', 'teams'));
     }
 
     /**
@@ -45,17 +52,18 @@ class TaskController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:pending,in_progress,done'],
-            'deadline' => ['nullable', 'date'],
-            'category_id' => ['nullable', 'exists:task_categories,id'],
-        ]);
-
-        $validated['user_id'] = auth()->id();
-
-        Task::create($validated);
+        $validated = $this->taskService->validateTaskData($request);
+        $task = $this->taskService->createTaskForUser(auth()->id(), $validated);
+        $this->activityLogService->log(
+            userId: (int) auth()->id(),
+            action: 'task.created',
+            description: "Created task: {$task->title}",
+            subject: $task,
+            properties: [
+                'assign_to' => $task->assign_to,
+                'team_id' => $task->team_id,
+            ]
+        );
 
         return redirect()->route('dashboard')->with('success', 'Task created successfully.');
     }
@@ -73,10 +81,12 @@ class TaskController extends Controller
      */
     public function edit(string $id)
     {
-        $task = Task::where('user_id', auth()->id())->findOrFail($id);
-        $categories = TaskCategory::query()->orderBy('name')->get();
+        $task = $this->taskService->getTaskForUser(auth()->id(), $id);
+        $categories = $this->taskService->getAllCategories();
+        $users = $this->taskService->getAssignableUsers();
+        $teams = $this->taskService->getUserTeams((int) auth()->id());
 
-        return view('tasks.edit', compact('task', 'categories'));
+        return view('tasks.edit', compact('task', 'categories', 'users', 'teams'));
     }
 
     /**
@@ -84,17 +94,19 @@ class TaskController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $task = Task::where('user_id', auth()->id())->findOrFail($id);
-
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:pending,in_progress,done'],
-            'deadline' => ['nullable', 'date'],
-            'category_id' => ['nullable', 'exists:task_categories,id'],
-        ]);
-
-        $task->update($validated);
+        $validated = $this->taskService->validateTaskData($request);
+        $task = $this->taskService->updateTaskForUser(auth()->id(), $id, $validated);
+        $this->activityLogService->log(
+            userId: (int) auth()->id(),
+            action: 'task.updated',
+            description: "Updated task: {$task->title}",
+            subject: $task,
+            properties: [
+                'assign_to' => $task->assign_to,
+                'team_id' => $task->team_id,
+                'status' => $task->status,
+            ]
+        );
 
         return redirect()->route('dashboard')->with('success', 'Task updated successfully.');
     }
@@ -104,8 +116,18 @@ class TaskController extends Controller
      */
     public function destroy(string $id)
     {
-        $task = Task::where('user_id', auth()->id())->findOrFail($id);
-        $task->delete();
+        $task = $this->taskService->getTaskForUser((int) auth()->id(), $id);
+        $this->taskService->deleteTaskForUser(auth()->id(), $id);
+        $this->activityLogService->log(
+            userId: (int) auth()->id(),
+            action: 'task.deleted',
+            description: "Deleted task: {$task->title}",
+            subject: null,
+            properties: [
+                'task_id' => (int) $task->id,
+                'title' => $task->title,
+            ]
+        );
 
         return redirect()->route('dashboard')->with('success', 'Task deleted successfully.');
     }

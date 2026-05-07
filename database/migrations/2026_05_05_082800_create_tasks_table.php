@@ -18,7 +18,9 @@ return new class extends Migration
             $table->string('status')->default('pending');
             $table->date('deadline')->nullable();
             $table->foreignId('category_id')->nullable()->constrained('task_categories')->nullOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('assign_to')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('team_id')->nullable()->constrained('teams')->nullOnDelete();
             $table->timestamps();
         });
     }
