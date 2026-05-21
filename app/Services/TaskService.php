@@ -5,10 +5,10 @@ namespace App\Services;
 use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\Team;
-use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class TaskService
 {
@@ -17,16 +17,59 @@ class TaskService
         ?string $categoryId,
         ?string $status,
         ?string $search,
-        int $perPage = 1
+        int $perPage = 10
     ): LengthAwarePaginator {
+        return $this->getTasksForUser($userId, 'assigned', $categoryId, $status, $search, $perPage);
+    }
+
+    public function getCreatedTasks(
+        int $userId,
+        ?string $categoryId,
+        ?string $status,
+        ?string $search,
+        int $perPage = 10,
+        string $pageName = 'created_page',
+    ): LengthAwarePaginator {
+        return $this->getTasksForUser($userId, 'created', $categoryId, $status, $search, $perPage, $pageName);
+    }
+
+    public function getAssignedTasks(
+        int $userId,
+        ?string $categoryId,
+        ?string $status,
+        ?string $search,
+        int $perPage = 10,
+        string $pageName = 'assigned_page',
+    ): LengthAwarePaginator {
+        return $this->getTasksForUser($userId, 'assigned', $categoryId, $status, $search, $perPage, $pageName);
+    }
+
+    public function getTasksForUser(
+        int $userId,
+        string $scope,
+        ?string $categoryId,
+        ?string $status,
+        ?string $search,
+        int $perPage = 10,
+        string $pageName = 'page',
+    ): LengthAwarePaginator {
+        $relations = ['category'];
+
+        if ($scope === 'created') {
+            $relations[] = 'assignee';
+        } else {
+            $relations[] = 'creator';
+        }
+
         return Task::query()
-            ->where('assign_to', $userId)
+            ->when($scope === 'created', fn ($q) => $q->where('created_by', $userId))
+            ->when($scope === 'assigned', fn ($q) => $q->where('assign_to', $userId))
             ->when($categoryId, fn ($q) => $q->where('category_id', $categoryId))
             ->when($status, fn ($q) => $q->where('status', $status))
             ->when($search, fn ($q) => $q->where('title', 'like', "%{$search}%"))
-            ->with('category')
+            ->with($relations)
             ->latest()
-            ->paginate($perPage)
+            ->paginate($perPage, ['*'], $pageName)
             ->withQueryString();
     }
 
@@ -35,17 +78,11 @@ class TaskService
         return TaskCategory::query()->orderBy('name')->get();
     }
 
-    public function getAssignableUsers(): Collection
-    {
-        return User::query()->orderBy('name')->get();
-    }
-
-    public function getUserTeams(int $userId): Collection
+    public function getUserTeamsWithMembers(int $userId): Collection
     {
         return Team::query()
-            ->whereHas('users', fn ($query) => $query
-                ->where('users.id', $userId)
-                ->where('team_users.status', 'accepted'))
+            ->whereHas('acceptedUsers', fn ($query) => $query->where('users.id', $userId))
+            ->with(['acceptedUsers' => fn ($query) => $query->orderBy('name')])
             ->orderBy('name')
             ->get();
     }
@@ -67,8 +104,8 @@ class TaskService
 
     public function createTaskForUser(int $userId, array $data): Task
     {
+        $data = $this->resolveTaskAssignment($userId, $data);
         $data['created_by'] = $userId;
-        $data['assign_to'] = $data['assign_to'] ?? $userId;
 
         return Task::create($data);
     }
@@ -84,18 +121,67 @@ class TaskService
             ->firstOrFail();
     }
 
-    public function updateTaskForUser(int $userId, string $taskId, array $data): Task
+    public function updateTaskForUser(int $userId, string $taskId, Request $request): Task
     {
         $task = $this->getTaskForUser($userId, $taskId);
-        $task->update($data);
+        Gate::authorize('update', $task);
 
-        return $task;
+        if (Gate::allows('updateFull', $task)) {
+            $data = $this->validateTaskData($request);
+            $data = $this->resolveTaskAssignment($userId, $data);
+            $task->update($data);
+        } elseif (Gate::allows('updateStatus', $task)) {
+            $data = $request->validate([
+                'status' => ['required', 'in:pending,in_progress,done'],
+            ]);
+            $task->update($data);
+        } else {
+            abort(403);
+        }
+
+        return $task->refresh();
     }
 
     public function deleteTaskForUser(int $userId, string $taskId): void
     {
         $task = $this->getTaskForUser($userId, $taskId);
+        Gate::authorize('delete', $task);
         $task->delete();
     }
-}
 
+    public function resolveTaskAssignment(int $userId, array $data): array
+    {
+        $teamId = ! empty($data['team_id']) ? (int) $data['team_id'] : null;
+
+        if ($teamId === null) {
+            $data['team_id'] = null;
+            $data['assign_to'] = $userId;
+            Gate::authorize('assign', null, $userId);
+
+            return $data;
+        }
+
+        $this->assertUserBelongsToTeam($userId, $teamId);
+
+        $assignTo = ! empty($data['assign_to']) ? (int) $data['assign_to'] : $userId;
+
+        Gate::authorize('assign', $teamId, $assignTo);
+
+        $data['team_id'] = $teamId;
+        $data['assign_to'] = $assignTo;
+
+        return $data;
+    }
+
+    private function assertUserBelongsToTeam(int $userId, int $teamId): void
+    {
+        $belongs = Team::query()
+            ->whereKey($teamId)
+            ->whereHas('acceptedUsers', fn ($query) => $query->where('users.id', $userId))
+            ->exists();
+
+        if (! $belongs) {
+            abort(403);
+        }
+    }
+}

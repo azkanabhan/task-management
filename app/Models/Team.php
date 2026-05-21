@@ -22,6 +22,14 @@ class Team extends Model
             ->withTimestamps();
     }
 
+    public function acceptedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'team_users')
+            ->wherePivot('status', 'accepted')
+            ->withPivot(['role', 'joined_at', 'status'])
+            ->withTimestamps();
+    }
+
     public function pendingUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'team_users')

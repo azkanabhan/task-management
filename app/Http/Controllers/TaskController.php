@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\ActivityLogService;
 use App\Services\TaskService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class TaskController extends Controller
 {
@@ -15,16 +16,32 @@ class TaskController extends Controller
     }
 
     /**
-     * Display a listing of the resource.
+     * Display the dashboard.
      */
-    public function index(Request $request)
+    public function index()
     {
+        return view('dashboard');
+    }
+
+    /**
+     * Display created and assigned tasks in separate sections.
+     */
+    public function tasks(Request $request)
+    {
+        $userId = (int) auth()->id();
         $categoryId = $request->query('category_id');
         $status = $request->query('status');
         $search = $request->query('search');
 
-        $tasks = $this->taskService->getDashboardTasks(
-            userId: auth()->id(),
+        $createdTasks = $this->taskService->getCreatedTasks(
+            userId: $userId,
+            categoryId: $categoryId,
+            status: $status,
+            search: $search,
+        );
+
+        $assignedTasks = $this->taskService->getAssignedTasks(
+            userId: $userId,
             categoryId: $categoryId,
             status: $status,
             search: $search,
@@ -32,7 +49,14 @@ class TaskController extends Controller
 
         $categories = $this->taskService->getAllCategories();
 
-        return view('dashboard', compact('tasks', 'categories', 'categoryId', 'status', 'search'));
+        return view('tasks.index', compact(
+            'createdTasks',
+            'assignedTasks',
+            'categories',
+            'categoryId',
+            'status',
+            'search',
+        ));
     }
 
     /**
@@ -41,10 +65,10 @@ class TaskController extends Controller
     public function create()
     {
         $categories = $this->taskService->getAllCategories();
-        $users = $this->taskService->getAssignableUsers();
-        $teams = $this->taskService->getUserTeams((int) auth()->id());
+        $teams = $this->taskService->getUserTeamsWithMembers((int) auth()->id());
+        $currentUserId = (int) auth()->id();
 
-        return view('tasks.create', compact('categories', 'users', 'teams'));
+        return view('tasks.create', compact('categories', 'teams', 'currentUserId'));
     }
 
     /**
@@ -65,7 +89,7 @@ class TaskController extends Controller
             ]
         );
 
-        return redirect()->route('dashboard')->with('success', 'Task created successfully.');
+        return redirect()->route('tasks.index')->with('success', 'Task created successfully.');
     }
 
     /**
@@ -81,12 +105,16 @@ class TaskController extends Controller
      */
     public function edit(string $id)
     {
-        $task = $this->taskService->getTaskForUser(auth()->id(), $id);
-        $categories = $this->taskService->getAllCategories();
-        $users = $this->taskService->getAssignableUsers();
-        $teams = $this->taskService->getUserTeams((int) auth()->id());
+        $task = $this->taskService->getTaskForUser((int) auth()->id(), $id);
+        Gate::authorize('update', $task);
+        $task->load(['category', 'creator', 'assignee', 'team']);
 
-        return view('tasks.edit', compact('task', 'categories', 'users', 'teams'));
+        $categories = $this->taskService->getAllCategories();
+        $teams = $this->taskService->getUserTeamsWithMembers((int) auth()->id());
+        $currentUserId = (int) auth()->id();
+        $canEditFull = Gate::allows('updateFull', $task);
+
+        return view('tasks.edit', compact('task', 'categories', 'teams', 'currentUserId', 'canEditFull'));
     }
 
     /**
@@ -94,8 +122,7 @@ class TaskController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $validated = $this->taskService->validateTaskData($request);
-        $task = $this->taskService->updateTaskForUser(auth()->id(), $id, $validated);
+        $task = $this->taskService->updateTaskForUser((int) auth()->id(), $id, $request);
         $this->activityLogService->log(
             userId: (int) auth()->id(),
             action: 'task.updated',
@@ -108,7 +135,7 @@ class TaskController extends Controller
             ]
         );
 
-        return redirect()->route('dashboard')->with('success', 'Task updated successfully.');
+        return redirect()->route('tasks.index')->with('success', 'Task updated successfully.');
     }
 
     /**
@@ -129,6 +156,6 @@ class TaskController extends Controller
             ]
         );
 
-        return redirect()->route('dashboard')->with('success', 'Task deleted successfully.');
+        return redirect()->route('tasks.index')->with('success', 'Task deleted successfully.');
     }
 }

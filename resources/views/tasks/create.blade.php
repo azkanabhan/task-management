@@ -66,44 +66,15 @@
                         <x-input-error class="mt-2" :messages="$errors->get('category_id')" />
                     </div>
 
-                    <div>
-                        <x-input-label for="team_id" :value="__('Team (Optional)')" />
-                        <select
-                            id="team_id"
-                            name="team_id"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500"
-                        >
-                            <option value="">No Team</option>
-                            @foreach ($teams as $team)
-                                <option value="{{ $team->id }}" @selected((string) old('team_id') === (string) $team->id)>
-                                    {{ $team->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('team_id')" />
-                    </div>
-
-                    <div>
-                        <x-input-label for="assign_to" :value="__('Assign To')" />
-                        <select
-                            id="assign_to"
-                            name="assign_to"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500"
-                        >
-                            <option value="">Unassigned</option>
-                            @foreach ($users as $user)
-                                <option value="{{ $user->id }}" @selected((string) old('assign_to') === (string) $user->id)>
-                                    {{ $user->name }} ({{ $user->email }})
-                                </option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('assign_to')" />
-                    </div>
+                    @include('tasks.partials.team-assign-fields', [
+                        'teams' => $teams,
+                        'currentUserId' => $currentUserId,
+                    ])
 
                     <div class="flex items-center gap-3">
                         <x-primary-button>{{ __('Save Task') }}</x-primary-button>
-                        <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 dark:text-gray-300 hover:underline">
-                            {{ __('Back to Dashboard') }}
+                        <a href="{{ route('tasks.index') }}" class="text-sm text-gray-600 dark:text-gray-300 hover:underline">
+                            {{ __('Back to Tasks') }}
                         </a>
                     </div>
                 </form>
