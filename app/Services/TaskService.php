@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Events\TaskCreated;
+use App\Events\TaskStatusUpdated;
 use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\Team;
@@ -107,7 +109,11 @@ class TaskService
         $data = $this->resolveTaskAssignment($userId, $data);
         $data['created_by'] = $userId;
 
-        return Task::create($data);
+        $task = Task::create($data);
+
+        TaskCreated::dispatch($task);
+
+        return $task;
     }
 
     public function getTaskForUser(int $userId, string $taskId): Task
@@ -126,6 +132,8 @@ class TaskService
         $task = $this->getTaskForUser($userId, $taskId);
         Gate::authorize('update', $task);
 
+        $previousStatus = $task->status;
+
         if (Gate::allows('updateFull', $task)) {
             $data = $this->validateTaskData($request);
             $data = $this->resolveTaskAssignment($userId, $data);
@@ -139,7 +147,13 @@ class TaskService
             abort(403);
         }
 
-        return $task->refresh();
+        $task->refresh();
+
+        if ($task->status !== $previousStatus) {
+            TaskStatusUpdated::dispatch($task, $userId);
+        }
+
+        return $task;
     }
 
     public function deleteTaskForUser(int $userId, string $taskId): void

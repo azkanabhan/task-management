@@ -23,7 +23,7 @@ class ActivityLogService
             subjectType: $subject ? $subject::class : null,
             subjectId: $subject ? (int) $subject->getKey() : null,
             properties: empty($properties) ? null : $properties,
-        )->onQueue('activity-logs');
+        );
     }
 
     public function getLogsForUser(int $userId, int $perPage = 20): LengthAwarePaginator

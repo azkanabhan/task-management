@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Events\TeamJoinRequested;
+use App\Events\TeamMemberApproved;
+use App\Events\TeamMemberRejected;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
@@ -99,11 +102,13 @@ class TeamService
 
         $team->users()->syncWithoutDetaching([
             $user->id => [
-                'role' => 'member',
-                'status' => 'pending',
+                'role'      => 'member',
+                'status'    => 'pending',
                 'joined_at' => null,
             ],
         ]);
+
+        TeamJoinRequested::dispatch($team, $user);
     }
 
     public function approveRequest(Team $team, int $memberId): void
@@ -113,14 +118,19 @@ class TeamService
             ->where('user_id', $memberId)
             ->where('status', 'pending')
             ->update([
-                'status' => 'accepted',
-                'role' => 'member',
-                'joined_at' => Carbon::now(),
+                'status'     => 'accepted',
+                'role'       => 'member',
+                'joined_at'  => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ]);
 
         if (! $updated) {
             throw new HttpException(404, 'Pending request not found.');
+        }
+
+        $member = User::find($memberId);
+        if ($member) {
+            TeamMemberApproved::dispatch($team, $member);
         }
     }
 
@@ -131,13 +141,18 @@ class TeamService
             ->where('user_id', $memberId)
             ->where('status', 'pending')
             ->update([
-                'status' => 'rejected',
-                'joined_at' => null,
+                'status'     => 'rejected',
+                'joined_at'  => null,
                 'updated_at' => Carbon::now(),
             ]);
 
         if (! $updated) {
             throw new HttpException(404, 'Pending request not found.');
+        }
+
+        $member = User::find($memberId);
+        if ($member) {
+            TeamMemberRejected::dispatch($team, $member);
         }
     }
 
