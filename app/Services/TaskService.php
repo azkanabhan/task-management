@@ -156,7 +156,7 @@ class TaskService
         if ($teamId === null) {
             $data['team_id'] = null;
             $data['assign_to'] = $userId;
-            Gate::authorize('assign', null, $userId);
+            Gate::authorize('assign', [Task::class, null, $userId]);
 
             return $data;
         }
@@ -165,7 +165,7 @@ class TaskService
 
         $assignTo = ! empty($data['assign_to']) ? (int) $data['assign_to'] : $userId;
 
-        Gate::authorize('assign', $teamId, $assignTo);
+        Gate::authorize('assign', [Task::class, $teamId, $assignTo]);
 
         $data['team_id'] = $teamId;
         $data['assign_to'] = $assignTo;
