@@ -106,10 +106,8 @@ class TeamService
         ]);
     }
 
-    public function approveRequest(User $owner, Team $team, int $memberId): void
+    public function approveRequest(Team $team, int $memberId): void
     {
-        $this->ensureOwner($owner->id, $team->id);
-
         $updated = DB::table('team_users')
             ->where('team_id', $team->id)
             ->where('user_id', $memberId)
@@ -126,10 +124,8 @@ class TeamService
         }
     }
 
-    public function rejectRequest(User $owner, Team $team, int $memberId): void
+    public function rejectRequest(Team $team, int $memberId): void
     {
-        $this->ensureOwner($owner->id, $team->id);
-
         $updated = DB::table('team_users')
             ->where('team_id', $team->id)
             ->where('user_id', $memberId)
@@ -145,10 +141,8 @@ class TeamService
         }
     }
 
-    public function updateMemberRole(User $owner, Team $team, int $memberId, string $role): void
+    public function updateMemberRole(Team $team, int $memberId, string $role): void
     {
-        $this->ensureOwner($owner->id, $team->id);
-
         if (! in_array($role, ['admin', 'member'], true)) {
             throw new HttpException(422, 'Invalid role.');
         }
@@ -168,10 +162,8 @@ class TeamService
         }
     }
 
-    public function kickMember(User $owner, Team $team, int $memberId): void
+    public function kickMember(Team $team, int $memberId): void
     {
-        $this->ensureOwner($owner->id, $team->id);
-
         $deleted = DB::table('team_users')
             ->where('team_id', $team->id)
             ->where('user_id', $memberId)
@@ -181,20 +173,6 @@ class TeamService
 
         if (! $deleted) {
             throw new HttpException(404, 'Member not found or cannot remove owner.');
-        }
-    }
-
-    private function ensureOwner(int $ownerId, int $teamId): void
-    {
-        $isOwner = DB::table('team_users')
-            ->where('team_id', $teamId)
-            ->where('user_id', $ownerId)
-            ->where('role', 'owner')
-            ->where('status', 'accepted')
-            ->exists();
-
-        if (! $isOwner) {
-            throw new HttpException(403, 'Only owner can manage team membership.');
         }
     }
 }

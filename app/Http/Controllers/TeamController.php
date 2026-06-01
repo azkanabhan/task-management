@@ -8,6 +8,7 @@ use App\Services\ActivityLogService;
 use App\Services\TeamService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class TeamController extends Controller
@@ -64,11 +65,13 @@ class TeamController extends Controller
 
     public function approve(Request $request, Team $team): RedirectResponse
     {
+        Gate::authorize('manageMembership', $team);
+
         $validated = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
         ]);
 
-        $this->teamService->approveRequest($request->user(), $team, (int) $validated['user_id']);
+        $this->teamService->approveRequest($team, (int) $validated['user_id']);
         $member = User::query()->find($validated['user_id']);
         $this->activityLogService->log(
             userId: (int) $request->user()->id,
@@ -83,11 +86,13 @@ class TeamController extends Controller
 
     public function reject(Request $request, Team $team): RedirectResponse
     {
+        Gate::authorize('manageMembership', $team);
+
         $validated = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
         ]);
 
-        $this->teamService->rejectRequest($request->user(), $team, (int) $validated['user_id']);
+        $this->teamService->rejectRequest($team, (int) $validated['user_id']);
         $member = User::query()->find($validated['user_id']);
         $this->activityLogService->log(
             userId: (int) $request->user()->id,
@@ -102,12 +107,14 @@ class TeamController extends Controller
 
     public function updateRole(Request $request, Team $team): RedirectResponse
     {
+        Gate::authorize('manageMembership', $team);
+
         $validated = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
             'role' => ['required', 'in:admin,member'],
         ]);
 
-        $this->teamService->updateMemberRole($request->user(), $team, (int) $validated['user_id'], $validated['role']);
+        $this->teamService->updateMemberRole($team, (int) $validated['user_id'], $validated['role']);
         $member = User::query()->find($validated['user_id']);
         $this->activityLogService->log(
             userId: (int) $request->user()->id,
@@ -125,11 +132,13 @@ class TeamController extends Controller
 
     public function kick(Request $request, Team $team): RedirectResponse
     {
+        Gate::authorize('manageMembership', $team);
+
         $validated = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
         ]);
 
-        $this->teamService->kickMember($request->user(), $team, (int) $validated['user_id']);
+        $this->teamService->kickMember($team, (int) $validated['user_id']);
         $member = User::query()->find($validated['user_id']);
         $this->activityLogService->log(
             userId: (int) $request->user()->id,
