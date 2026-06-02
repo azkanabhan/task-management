@@ -38,7 +38,7 @@ class TaskStatusUpdatedNotification extends Notification implements ShouldQueue
             'task_title' => $this->task->title,
             'message'    => "Your task \"{$this->task->title}\" status was updated to \"{$statusLabel}\".",
             'new_status' => $this->newStatus,
-            'url'        => route('tasks.edit', $this->task->id),
+            'url'        => route('tasks.edit', $this->task->id, false),
         ];
     }
 }

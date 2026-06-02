@@ -33,6 +33,7 @@
             x-show="count > 0"
             x-text="count > 9 ? '9+' : count"
             class="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full leading-none"
+            style="display: none;"
         ></span>
     </button>
 

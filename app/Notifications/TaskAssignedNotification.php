@@ -28,7 +28,7 @@ class TaskAssignedNotification extends Notification implements ShouldQueue
             'task_title'  => $this->task->title,
             'message'     => "You have been assigned a new task: \"{$this->task->title}\".",
             'assigned_by' => $this->task->created_by,
-            'url'         => route('tasks.edit', $this->task->id),
+            'url'         => route('tasks.edit', $this->task->id, false),
         ];
     }
 }

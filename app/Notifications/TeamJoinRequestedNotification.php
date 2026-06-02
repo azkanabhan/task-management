@@ -32,7 +32,7 @@ class TeamJoinRequestedNotification extends Notification implements ShouldQueue
             'requester_id'   => $this->requester->id,
             'requester_name' => $this->requester->name,
             'message'        => "\"{$this->requester->name}\" requested to join your team \"{$this->team->name}\".",
-            'url'            => route('teams.index'),
+            'url'            => route('teams.index', [], false),
         ];
     }
 }

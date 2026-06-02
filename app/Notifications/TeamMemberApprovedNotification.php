@@ -27,7 +27,7 @@ class TeamMemberApprovedNotification extends Notification implements ShouldQueue
             'team_id'   => $this->team->id,
             'team_name' => $this->team->name,
             'message'   => "Your request to join \"{$this->team->name}\" has been approved!",
-            'url'       => route('teams.index'),
+            'url'       => route('teams.index', [], false),
         ];
     }
 }
