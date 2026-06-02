@@ -1,12 +1,32 @@
 @php
     $selectedTeamId = (string) old('team_id', $selectedTeamId ?? '');
     $selectedAssignTo = (string) old('assign_to', $selectedAssignTo ?? '');
-    $teamMembers = $teams->mapWithKeys(fn ($team) => [
-        (string) $team->id => $team->acceptedUsers->map(fn ($member) => [
-            'id' => $member->id,
-            'label' => $member->name.' ('.$member->email.')',
-        ])->values()->all(),
-    ]);
+    $currentUserId = auth()->id();
+
+    $roleWeights = [
+        'member' => 1,
+        'admin'  => 2,
+        'owner'  => 3,
+    ];
+
+    $teamMembers = $teams->mapWithKeys(function ($team) use ($currentUserId, $roleWeights) {
+        $currentUserMember = $team->acceptedUsers->first(fn ($u) => (int) $u->id === (int) $currentUserId);
+        $currentUserRole = $currentUserMember ? $currentUserMember->pivot->role : 'member';
+        $currentUserWeight = $roleWeights[$currentUserRole] ?? 0;
+
+        $filteredMembers = $team->acceptedUsers->filter(function ($member) use ($currentUserWeight, $roleWeights) {
+            $memberRole = $member->pivot->role ?? 'member';
+            $memberWeight = $roleWeights[$memberRole] ?? 0;
+            return $currentUserWeight >= $memberWeight;
+        });
+
+        return [
+            (string) $team->id => $filteredMembers->map(fn ($member) => [
+                'id' => $member->id,
+                'label' => $member->name . ' (' . $member->email . ')' . ((int) $member->id === (int) $currentUserId ? ' (You)' : ''),
+            ])->values()->all(),
+        ];
+    });
 @endphp
 
 <div>
@@ -40,7 +60,7 @@
         class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500"
         @disabled($selectedTeamId === '')
     >
-        <option value="">{{ __('Select a team member') }}</option>
+        <option value="" disabled selected>{{ __('Select a team member') }}</option>
     </select>
     <x-input-error class="mt-2" :messages="$errors->get('assign_to')" />
 </div>
@@ -64,6 +84,8 @@
             const placeholder = document.createElement('option');
             placeholder.value = '';
             placeholder.textContent = selectMemberLabel;
+            placeholder.disabled = true;
+            placeholder.selected = true;
             assignSelect.appendChild(placeholder);
 
             const members = teamMembers[teamId] ?? [];

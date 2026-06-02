@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Events\TaskCreated;
 use App\Events\TaskStatusUpdated;
+use App\Events\TaskUpdated;
+use App\Events\TaskDeleted;
 use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\Team;
@@ -133,11 +135,14 @@ class TaskService
         Gate::authorize('update', $task);
 
         $previousStatus = $task->status;
+        $previousAssigneeId = $task->assign_to !== null ? (int) $task->assign_to : null;
+        $wasFullUpdate = false;
 
         if (Gate::allows('updateFull', $task)) {
             $data = $this->validateTaskData($request);
             $data = $this->resolveTaskAssignment($userId, $data);
             $task->update($data);
+            $wasFullUpdate = true;
         } elseif (Gate::allows('updateStatus', $task)) {
             $data = $request->validate([
                 'status' => ['required', 'in:pending,in_progress,done'],
@@ -153,6 +158,10 @@ class TaskService
             TaskStatusUpdated::dispatch($task, $userId);
         }
 
+        if ($wasFullUpdate) {
+            TaskUpdated::dispatch($task, $userId, $previousAssigneeId);
+        }
+
         return $task;
     }
 
@@ -160,7 +169,14 @@ class TaskService
     {
         $task = $this->getTaskForUser($userId, $taskId);
         Gate::authorize('delete', $task);
+
+        $taskTitle = $task->title;
+        $assigneeId = $task->assign_to !== null ? (int) $task->assign_to : null;
+        $creatorId = (int) $task->created_by;
+
         $task->delete();
+
+        TaskDeleted::dispatch($taskTitle, $userId, $assigneeId, $creatorId);
     }
 
     public function resolveTaskAssignment(int $userId, array $data): array

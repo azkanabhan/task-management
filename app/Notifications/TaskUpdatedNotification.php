@@ -8,14 +8,13 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class TaskStatusUpdatedNotification extends Notification implements ShouldQueue
+class TaskUpdatedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
     public function __construct(
         public readonly Task $task,
-        public readonly string $newStatus,
-        public readonly int $updatedByUserId,
+        public readonly int $updaterId,
     ) {
     }
 
@@ -26,22 +25,14 @@ class TaskStatusUpdatedNotification extends Notification implements ShouldQueue
 
     public function toDatabase(object $notifiable): array
     {
-        $statusLabel = match ($this->newStatus) {
-            'pending'     => 'Pending',
-            'in_progress' => 'In Progress',
-            'done'        => 'Done',
-            default       => ucfirst($this->newStatus),
-        };
-
-        $updater = User::find($this->updatedByUserId);
+        $updater = User::find($this->updaterId);
         $updaterName = $updater ? $updater->name : 'Someone';
 
         return [
-            'type'       => 'task_status_updated',
+            'type'       => 'task_updated',
             'task_id'    => $this->task->id,
             'task_title' => $this->task->title,
-            'message'    => "Task \"{$this->task->title}\" status was updated to \"{$statusLabel}\" by {$updaterName}.",
-            'new_status' => $this->newStatus,
+            'message'    => "Task \"{$this->task->title}\" was updated by {$updaterName}.",
             'url'        => route('tasks.edit', $this->task->id, false),
         ];
     }

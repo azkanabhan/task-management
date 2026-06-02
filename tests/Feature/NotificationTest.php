@@ -10,9 +10,14 @@ use App\Models\Team;
 use App\Models\User;
 use App\Notifications\TaskAssignedNotification;
 use App\Notifications\TaskStatusUpdatedNotification;
+use App\Notifications\TaskUnassignedNotification;
+use App\Notifications\TaskUpdatedNotification;
+use App\Notifications\TaskDeletedNotification;
 use App\Notifications\TeamJoinRequestedNotification;
 use App\Notifications\TeamMemberApprovedNotification;
 use App\Notifications\TeamMemberRejectedNotification;
+use App\Events\TaskUpdated;
+use App\Events\TaskDeleted;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 
@@ -216,8 +221,59 @@ test('marking all as read clears the unread count', function () {
     $this->assertEquals(2, $user->unreadNotifications()->count());
 
     $this->actingAs($user)
+        ->from(route('notifications.index'))
         ->post(route('notifications.readAll'))
         ->assertRedirect(route('notifications.index'));
 
     $this->assertEquals(0, $user->unreadNotifications()->count());
+});
+
+test('TaskStatusUpdated event sends TaskStatusUpdatedNotification to assignee if updated by creator', function () {
+    Notification::fake();
+
+    $creator  = User::factory()->create();
+    $assignee = User::factory()->create();
+    $task     = Task::factory()->create(['created_by' => $creator->id, 'assign_to' => $assignee->id, 'status' => 'pending']);
+
+    event(new TaskStatusUpdated($task, $creator->id));
+
+    Notification::assertSentTo($assignee, TaskStatusUpdatedNotification::class);
+    Notification::assertNotSentTo($creator, TaskStatusUpdatedNotification::class);
+});
+
+test('TaskUpdated event sends TaskUpdatedNotification to assignee when creator updates task details', function () {
+    Notification::fake();
+
+    $creator  = User::factory()->create();
+    $assignee = User::factory()->create();
+    $task     = Task::factory()->create(['created_by' => $creator->id, 'assign_to' => $assignee->id]);
+
+    event(new TaskUpdated($task, $creator->id, $assignee->id));
+
+    Notification::assertSentTo($assignee, TaskUpdatedNotification::class);
+});
+
+test('TaskUpdated event handles assignee changes by notifying both previous and new assignees', function () {
+    Notification::fake();
+
+    $creator  = User::factory()->create();
+    $prevAssignee = User::factory()->create();
+    $newAssignee = User::factory()->create();
+    $task     = Task::factory()->create(['created_by' => $creator->id, 'assign_to' => $newAssignee->id]);
+
+    event(new TaskUpdated($task, $creator->id, $prevAssignee->id));
+
+    Notification::assertSentTo($prevAssignee, TaskUnassignedNotification::class);
+    Notification::assertSentTo($newAssignee, TaskAssignedNotification::class);
+});
+
+test('TaskDeleted event sends TaskDeletedNotification to assignee when a task is deleted by creator', function () {
+    Notification::fake();
+
+    $creator  = User::factory()->create();
+    $assignee = User::factory()->create();
+
+    event(new TaskDeleted('Some Task Title', $creator->id, $assignee->id, $creator->id));
+
+    Notification::assertSentTo($assignee, TaskDeletedNotification::class);
 });

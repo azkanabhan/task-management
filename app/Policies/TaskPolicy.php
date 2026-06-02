@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\Task;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class TaskPolicy
 {
@@ -78,21 +79,32 @@ class TaskPolicy
             return false;
         }
 
-        $team = Team::query()->whereKey($teamId)->first();
+        $pivots = DB::table('team_users')
+            ->where('team_id', $teamId)
+            ->whereIn('user_id', [$user->id, $assignToId])
+            ->where('status', 'accepted')
+            ->get();
 
-        if ($team === null) {
+        $userPivot = $pivots->firstWhere('user_id', $user->id);
+        $assigneePivot = $pivots->firstWhere('user_id', $assignToId);
+
+        if (!$userPivot || !$assigneePivot) {
             return false;
         }
 
-        $assigneeOnTeam = $team->acceptedUsers()
-            ->where('users.id', $assignToId)
-            ->exists();
+        $roleHierarchy = [
+            'member' => 1,
+            'admin'  => 2,
+            'owner'  => 3,
+        ];
 
-        $userOnTeam = $team->acceptedUsers()
-            ->where('users.id', $user->id)
-            ->exists();
+        $userRole = $userPivot->role;
+        $assigneeRole = $assigneePivot->role;
 
-        return $assigneeOnTeam && $userOnTeam;
+        $userWeight = $roleHierarchy[$userRole] ?? 0;
+        $assigneeWeight = $roleHierarchy[$assigneeRole] ?? 0;
+
+        return $userWeight >= $assigneeWeight;
     }
 
     /**
