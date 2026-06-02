@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use Resend\Laravel\Facades\Resend;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -27,6 +28,20 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        $html = view('emails.login_notification', [
+            'user' => $request->user(),
+            'ip' => $request->ip(),
+            'userAgent' => $request->userAgent(),
+            'time' => now()->toDayDateTimeString(),
+        ])->render();
+
+        Resend::emails()->send([
+            'from' => 'Azka Nabhan <admin@azkanabhan.space>',
+            'to' => [$request->user()->email],
+            'subject' => 'Successful Login Notification',
+            'html' => $html,
+        ]);
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
