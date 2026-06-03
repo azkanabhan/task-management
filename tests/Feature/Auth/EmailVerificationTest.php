@@ -28,7 +28,7 @@ test('email can be verified', function () {
 
     Event::assertDispatched(Verified::class);
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
-    $response->assertRedirect(route('dashboard', absolute: false).'?verified=1');
+    $response->assertRedirect(route('verification.success', absolute: false));
 });
 
 test('email is not verified with invalid hash', function () {
@@ -43,4 +43,20 @@ test('email is not verified with invalid hash', function () {
     $this->actingAs($user)->get($verificationUrl);
 
     expect($user->fresh()->hasVerifiedEmail())->toBeFalse();
+});
+
+test('success verification page cannot be rendered by unverified user', function () {
+    $user = User::factory()->unverified()->create();
+
+    $response = $this->actingAs($user)->get('/verified');
+
+    $response->assertRedirect('/verify-email');
+});
+
+test('success verification page can be rendered by verified user', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->get('/verified');
+
+    $response->assertStatus(200);
 });
