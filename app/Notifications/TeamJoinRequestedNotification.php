@@ -6,6 +6,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class TeamJoinRequestedNotification extends Notification implements ShouldQueue
@@ -20,7 +21,18 @@ class TeamJoinRequestedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject("Join Request for Team: \"{$this->team->name}\"")
+            ->view('emails.team_join_requested', [
+                'team' => $this->team,
+                'requester' => $this->requester,
+                'notifiable' => $notifiable,
+            ]);
     }
 
     public function toDatabase(object $notifiable): array

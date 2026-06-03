@@ -6,6 +6,7 @@ use App\Models\Task;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class TaskUpdatedNotification extends Notification implements ShouldQueue
@@ -20,7 +21,21 @@ class TaskUpdatedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $updater = User::find($this->updaterId);
+        $updaterName = $updater ? $updater->name : 'Someone';
+
+        return (new MailMessage)
+            ->subject("Task Updated: \"{$this->task->title}\"")
+            ->view('emails.task_updated', [
+                'task' => $this->task,
+                'notifiable' => $notifiable,
+                'updaterName' => $updaterName,
+             ]);
     }
 
     public function toDatabase(object $notifiable): array

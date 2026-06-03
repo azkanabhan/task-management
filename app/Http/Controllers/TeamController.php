@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\TeamMemberRoleUpdated;
+use App\Events\TeamMemberKicked;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\ActivityLogService;
@@ -125,6 +127,11 @@ class TeamController extends Controller
 
         $this->teamService->updateMemberRole($team, (int) $validated['user_id'], $validated['role']);
         $member = User::query()->find($validated['user_id']);
+        
+        if ($member) {
+            TeamMemberRoleUpdated::dispatch($team, $member, $validated['role']);
+        }
+
         $this->activityLogService->log(
             userId: (int) $request->user()->id,
             action: 'team.member.role.updated',
@@ -149,6 +156,11 @@ class TeamController extends Controller
 
         $this->teamService->kickMember($team, (int) $validated['user_id']);
         $member = User::query()->find($validated['user_id']);
+
+        if ($member) {
+            TeamMemberKicked::dispatch($team, $member);
+        }
+
         $this->activityLogService->log(
             userId: (int) $request->user()->id,
             action: 'team.member.kicked',

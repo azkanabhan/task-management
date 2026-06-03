@@ -5,9 +5,13 @@ namespace App\Listeners;
 use App\Events\TeamJoinRequested;
 use App\Events\TeamMemberApproved;
 use App\Events\TeamMemberRejected;
+use App\Events\TeamMemberRoleUpdated;
+use App\Events\TeamMemberKicked;
 use App\Notifications\TeamJoinRequestedNotification;
 use App\Notifications\TeamMemberApprovedNotification;
 use App\Notifications\TeamMemberRejectedNotification;
+use App\Notifications\TeamMemberRoleUpdatedNotification;
+use App\Notifications\TeamMemberKickedNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\DB;
 
@@ -38,5 +42,15 @@ class SendTeamNotification implements ShouldQueue
     public function handleMemberRejected(TeamMemberRejected $event): void
     {
         $event->member->notify(new TeamMemberRejectedNotification($event->team));
+    }
+
+    public function handleMemberRoleUpdated(TeamMemberRoleUpdated $event): void
+    {
+        $event->member->notify(new TeamMemberRoleUpdatedNotification($event->team, $event->role));
+    }
+
+    public function handleMemberKicked(TeamMemberKicked $event): void
+    {
+        $event->member->notify(new TeamMemberKickedNotification($event->team));
     }
 }

@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Task;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class TaskAssignedNotification extends Notification implements ShouldQueue
@@ -17,7 +18,17 @@ class TaskAssignedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject("New Task Assigned: \"{$this->task->title}\"")
+            ->view('emails.task_assigned', [
+                'task' => $this->task,
+                'notifiable' => $notifiable,
+            ]);
     }
 
     public function toDatabase(object $notifiable): array

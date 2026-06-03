@@ -277,3 +277,121 @@ test('TaskDeleted event sends TaskDeletedNotification to assignee when a task is
 
     Notification::assertSentTo($assignee, TaskDeletedNotification::class);
 });
+
+test('TaskAssignedNotification creates mail message correctly', function () {
+    $creator  = User::factory()->create();
+    $assignee = User::factory()->create();
+    $task     = Task::factory()->create(['created_by' => $creator->id, 'assign_to' => $assignee->id]);
+
+    $notification = new TaskAssignedNotification($task);
+    $mailMessage = $notification->toMail($assignee);
+
+    expect($mailMessage->subject)->toBe("New Task Assigned: \"{$task->title}\"");
+    expect($mailMessage->view)->toBe('emails.task_assigned');
+});
+
+test('TaskUpdatedNotification creates mail message correctly', function () {
+    $creator  = User::factory()->create();
+    $assignee = User::factory()->create();
+    $task     = Task::factory()->create(['created_by' => $creator->id, 'assign_to' => $assignee->id]);
+
+    $notification = new TaskUpdatedNotification($task, $creator->id);
+    $mailMessage = $notification->toMail($assignee);
+
+    expect($mailMessage->subject)->toBe("Task Updated: \"{$task->title}\"");
+    expect($mailMessage->view)->toBe('emails.task_updated');
+});
+
+test('TaskUnassignedNotification creates mail message correctly', function () {
+    $creator  = User::factory()->create();
+    $assignee = User::factory()->create();
+
+    $notification = new TaskUnassignedNotification('Unassigned Task Title', $creator->id);
+    $mailMessage = $notification->toMail($assignee);
+
+    expect($mailMessage->subject)->toBe("Unassigned from Task: \"Unassigned Task Title\"");
+    expect($mailMessage->view)->toBe('emails.task_unassigned');
+});
+
+test('TaskDeletedNotification creates mail message correctly', function () {
+    $creator  = User::factory()->create();
+    $assignee = User::factory()->create();
+
+    $notification = new TaskDeletedNotification('Deleted Task Title', $creator->id);
+    $mailMessage = $notification->toMail($assignee);
+
+    expect($mailMessage->subject)->toBe("Task Deleted: \"Deleted Task Title\"");
+    expect($mailMessage->view)->toBe('emails.task_deleted');
+});
+
+test('TeamJoinRequestedNotification creates mail message correctly', function () {
+    $owner = User::factory()->create();
+    $team  = Team::create(['name' => 'Test Team']);
+    $team->users()->attach($owner->id, ['role' => 'owner', 'status' => 'accepted', 'joined_at' => now()]);
+    $requester = User::factory()->create();
+
+    $notification = new TeamJoinRequestedNotification($team, $requester);
+    $mailMessage = $notification->toMail($owner);
+
+    expect($mailMessage->subject)->toBe("Join Request for Team: \"Test Team\"");
+    expect($mailMessage->view)->toBe('emails.team_join_requested');
+});
+
+test('TeamMemberRoleUpdatedNotification creates mail message correctly', function () {
+    $team  = Team::create(['name' => 'Test Team']);
+    $member = User::factory()->create();
+
+    $notification = new \App\Notifications\TeamMemberRoleUpdatedNotification($team, 'admin');
+    $mailMessage = $notification->toMail($member);
+
+    expect($mailMessage->subject)->toBe("Role Updated in Team: \"Test Team\"");
+    expect($mailMessage->view)->toBe('emails.team_member_role_updated');
+});
+
+test('TeamMemberKickedNotification creates mail message correctly', function () {
+    $team  = Team::create(['name' => 'Test Team']);
+    $member = User::factory()->create();
+
+    $notification = new \App\Notifications\TeamMemberKickedNotification($team);
+    $mailMessage = $notification->toMail($member);
+
+    expect($mailMessage->subject)->toBe("Removed from Team: \"Test Team\"");
+    expect($mailMessage->view)->toBe('emails.team_member_kicked');
+});
+
+test('updating member role sends TeamMemberRoleUpdatedNotification', function () {
+    Notification::fake();
+    Event::fake([\App\Events\TeamMemberRoleUpdated::class]);
+
+    $owner = User::factory()->create();
+    $team  = Team::create(['name' => 'Test Team']);
+    $team->users()->attach($owner->id, ['role' => 'owner', 'status' => 'accepted', 'joined_at' => now()]);
+    $member = User::factory()->create();
+    $team->users()->attach($member->id, ['role' => 'member', 'status' => 'accepted', 'joined_at' => now()]);
+
+    $response = $this->actingAs($owner)->post(route('teams.role.update', $team), [
+        'user_id' => $member->id,
+        'role' => 'admin',
+    ]);
+
+    $response->assertRedirect(route('teams.index'));
+    Event::assertDispatched(\App\Events\TeamMemberRoleUpdated::class);
+});
+
+test('kicking member sends TeamMemberKickedNotification', function () {
+    Notification::fake();
+    Event::fake([\App\Events\TeamMemberKicked::class]);
+
+    $owner = User::factory()->create();
+    $team  = Team::create(['name' => 'Test Team']);
+    $team->users()->attach($owner->id, ['role' => 'owner', 'status' => 'accepted', 'joined_at' => now()]);
+    $member = User::factory()->create();
+    $team->users()->attach($member->id, ['role' => 'member', 'status' => 'accepted', 'joined_at' => now()]);
+
+    $response = $this->actingAs($owner)->post(route('teams.kick', $team), [
+        'user_id' => $member->id,
+    ]);
+
+    $response->assertRedirect(route('teams.index'));
+    Event::assertDispatched(\App\Events\TeamMemberKicked::class);
+});

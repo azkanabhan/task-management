@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class TaskUnassignedNotification extends Notification implements ShouldQueue
@@ -19,7 +20,21 @@ class TaskUnassignedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $updater = User::find($this->updaterId);
+        $updaterName = $updater ? $updater->name : 'Someone';
+
+        return (new MailMessage)
+            ->subject("Unassigned from Task: \"{$this->taskTitle}\"")
+            ->view('emails.task_unassigned', [
+                'taskTitle' => $this->taskTitle,
+                'notifiable' => $notifiable,
+                'updaterName' => $updaterName,
+            ]);
     }
 
     public function toDatabase(object $notifiable): array
