@@ -37,6 +37,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/notifications/unread', [NotificationController::class, 'unread'])->name('notifications.unread');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.readAll');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+
+    // Team Invitations
+    Route::post('/teams/{team}/invite', [\App\Http\Controllers\TeamInvitationController::class, 'store'])->name('teams.invite');
+    Route::post('/teams/invitations/{invitation}/accept', [\App\Http\Controllers\TeamInvitationController::class, 'accept'])->name('teams.invitations.accept');
+    Route::post('/teams/invitations/{invitation}/decline', [\App\Http\Controllers\TeamInvitationController::class, 'decline'])->name('teams.invitations.decline');
+    Route::delete('/teams/invitations/{invitation}', [\App\Http\Controllers\TeamInvitationController::class, 'destroy'])->name('teams.invitations.destroy');
 });
 
 Route::middleware('auth')->group(function () {

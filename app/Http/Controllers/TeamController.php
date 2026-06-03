@@ -22,13 +22,22 @@ class TeamController extends Controller
     public function index(Request $request): View
     {
         $userId = (int) $request->user()->id;
+        $search = $request->query('search', '');
 
         $myTeams = $this->teamService->getUserTeams($userId);
-        $joinableTeams = $this->teamService->getJoinableTeams($userId);
+        
+        $joinableTeams = !empty($search)
+            ? $this->teamService->searchJoinableTeams($userId, $search)
+            : new \Illuminate\Database\Eloquent\Collection();
+
         $pendingRequestTeamIds = $this->teamService->getPendingRequestTeamIds($userId);
         $ownedTeams = $this->teamService->getOwnedTeamsWithMembersAndRequests($userId);
+        $receivedInvitations = \App\Models\TeamInvitation::query()
+            ->where('email', strtolower($request->user()->email))
+            ->with('team')
+            ->get();
 
-        return view('teams.index', compact('myTeams', 'joinableTeams', 'pendingRequestTeamIds', 'ownedTeams'));
+        return view('teams.index', compact('myTeams', 'joinableTeams', 'pendingRequestTeamIds', 'ownedTeams', 'receivedInvitations', 'search'));
     }
 
     public function create(): View

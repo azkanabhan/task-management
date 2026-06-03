@@ -35,6 +35,23 @@ class TeamService
             ->get();
     }
 
+    public function searchJoinableTeams(int $userId, string $searchQuery): Collection
+    {
+        if (empty(trim($searchQuery))) {
+            return new Collection();
+        }
+
+        return Team::query()
+            ->whereDoesntHave('users', fn ($query) => $query
+                ->where('users.id', $userId)
+                ->where('team_users.status', 'accepted'))
+            ->where(fn ($query) => $query
+                ->where('name', 'like', "%{$searchQuery}%")
+                ->orWhere('code', '=', trim($searchQuery)))
+            ->orderBy('name')
+            ->get();
+    }
+
     public function getPendingRequestTeamIds(int $userId): array
     {
         return DB::table('team_users')
@@ -59,6 +76,7 @@ class TeamService
                     ->orderBy('users.name'),
                 'pendingUsers' => fn ($query) => $query
                     ->orderBy('users.name'),
+                'invitations',
             ])
             ->orderBy('name')
             ->get();
