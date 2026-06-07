@@ -29,40 +29,44 @@
     });
 @endphp
 
-<div>
-    <x-input-label for="team_id" :value="__('Team (Optional)')" />
-    <select
-        id="team_id"
-        name="team_id"
-        class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500"
-    >
-        <option value="">{{ __('No Team') }}</option>
-        @foreach ($teams as $team)
-            <option value="{{ $team->id }}" @selected($selectedTeamId === (string) $team->id)>
-                {{ $team->name }}
-            </option>
-        @endforeach
-    </select>
-    <x-input-error class="mt-2" :messages="$errors->get('team_id')" />
-</div>
+<div class="space-y-4">
+    {{-- Team Selection --}}
+    <div>
+        <label for="team_id" class="input-label">{{ __('Team') }} <span class="text-slate-400 dark:text-slate-500 text-xs font-normal">({{ __('Optional') }})</span></label>
+        <select id="team_id" name="team_id" class="input-field mt-1">
+            <option value="">{{ __('No Team') }}</option>
+            @foreach ($teams as $team)
+                <option value="{{ $team->id }}" @selected($selectedTeamId === (string) $team->id)>
+                    {{ $team->name }}
+                </option>
+            @endforeach
+        </select>
+        <x-input-error class="mt-2" :messages="$errors->get('team_id')" />
+    </div>
 
-<div id="assign-to-self-notice" class="{{ $selectedTeamId !== '' ? 'hidden' : '' }} mt-2">
-    <p class="text-sm text-gray-600 dark:text-gray-300">
-        {{ __('No team selected. This task will be assigned to you.') }}
-    </p>
-</div>
+    {{-- Self-assign Notice --}}
+    <div id="assign-to-self-notice" class="{{ $selectedTeamId !== '' ? 'hidden' : '' }}">
+        <div class="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+            <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p class="text-sm text-slate-500 dark:text-slate-400">
+                {{ __('No team selected. This task will be assigned to you.') }}
+            </p>
+        </div>
+    </div>
 
-<div id="assign-to-field" class="{{ $selectedTeamId === '' ? 'hidden' : '' }}">
-    <x-input-label for="assign_to" :value="__('Assign To')" />
-    <select
-        id="assign_to"
-        name="assign_to"
-        class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500"
-        @disabled($selectedTeamId === '')
-    >
-        <option value="" disabled selected>{{ __('Select a team member') }}</option>
-    </select>
-    <x-input-error class="mt-2" :messages="$errors->get('assign_to')" />
+    {{-- Assign To Member --}}
+    <div id="assign-to-field" class="{{ $selectedTeamId === '' ? 'hidden' : '' }}">
+        <label for="assign_to" class="input-label">{{ __('Assign To') }}</label>
+        <select
+            id="assign_to"
+            name="assign_to"
+            class="input-field mt-1"
+            @disabled($selectedTeamId === '')
+        >
+            <option value="" disabled selected>{{ __('Select a team member') }}</option>
+        </select>
+        <x-input-error class="mt-2" :messages="$errors->get('assign_to')" />
+    </div>
 </div>
 
 <script>

@@ -20,7 +20,33 @@ class TaskController extends Controller
      */
     public function index()
     {
-        return view('dashboard');
+        $userId = (int) auth()->id();
+        $user = auth()->user();
+
+        // Task counts by status
+        $taskCounts = [
+            'total' => \App\Models\Task::where('created_by', $userId)->orWhere('assign_to', $userId)->count(),
+            'pending' => \App\Models\Task::where(fn($q) => $q->where('created_by', $userId)->orWhere('assign_to', $userId))->where('status', 'pending')->count(),
+            'in_progress' => \App\Models\Task::where(fn($q) => $q->where('created_by', $userId)->orWhere('assign_to', $userId))->where('status', 'in_progress')->count(),
+            'done' => \App\Models\Task::where(fn($q) => $q->where('created_by', $userId)->orWhere('assign_to', $userId))->where('status', 'done')->count(),
+        ];
+
+        // Upcoming deadlines (next 7 days)
+        $upcomingDeadlines = \App\Models\Task::where(fn($q) => $q->where('created_by', $userId)->orWhere('assign_to', $userId))
+            ->where('status', '!=', 'done')
+            ->whereNotNull('deadline')
+            ->whereBetween('deadline', [now()->toDateString(), now()->addDays(7)->toDateString()])
+            ->orderBy('deadline')
+            ->limit(5)
+            ->get();
+
+        // Recent activity logs
+        $recentLogs = $this->activityLogService->getLogsForUser($userId, perPage: 5);
+
+        // Team count
+        $teamCount = $user->teams()->wherePivot('status', 'accepted')->count();
+
+        return view('dashboard', compact('taskCounts', 'upcomingDeadlines', 'recentLogs', 'teamCount'));
     }
 
     /**

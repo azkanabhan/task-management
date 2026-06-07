@@ -1,104 +1,88 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-            {{ $canEditFull ? __('Edit Task') : __('Update Task Status') }}
-        </h2>
-    </x-slot>
+    <div class="page-container animate-fade-in">
+        <x-page-header
+            :title="$canEditFull ? __('Edit Task') : __('Update Task Status')"
+            :description="$canEditFull ? __('Modify your task details') : __('You can only update the status of tasks assigned to you.')"
+        >
+            <x-slot name="actions">
+                <a href="{{ route('tasks.index') }}" class="btn-ghost inline-flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    {{ __('Back to Tasks') }}
+                </a>
+            </x-slot>
+        </x-page-header>
 
-    <div class="py-12">
-        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
-            <div class="p-6 bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg">
-                @if (! $canEditFull)
-                    <p class="mb-6 text-sm text-gray-600 dark:text-gray-300">
-                        {{ __('You can only update the status of tasks assigned to you by someone else.') }}
-                    </p>
-                @endif
+        <form method="POST" action="{{ route('tasks.update', $task->id) }}" class="space-y-6 max-w-3xl">
+            @csrf
+            @method('PUT')
 
-                <form method="POST" action="{{ route('tasks.update', $task->id) }}" class="space-y-6">
-                    @csrf
-                    @method('PUT')
+            @if ($canEditFull)
+                {{-- Full Edit: Task Details --}}
+                <div class="card p-6">
+                    <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 mb-5 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        {{ __('Task Details') }}
+                    </h2>
 
-                    @if ($canEditFull)
+                    <div class="space-y-5">
+                        {{-- Title --}}
                         <div>
-                            <x-input-label for="title" :value="__('Title')" />
-                            <x-text-input id="title" name="title" type="text" class="mt-1 block w-full" :value="old('title', $task->title)" required autofocus />
+                            <label for="title" class="input-label">{{ __('Title') }} <span class="text-rose-500">*</span></label>
+                            <input
+                                id="title"
+                                name="title"
+                                type="text"
+                                value="{{ old('title', $task->title) }}"
+                                class="input-field mt-1"
+                                required
+                                autofocus
+                            >
                             <x-input-error class="mt-2" :messages="$errors->get('title')" />
                         </div>
 
+                        {{-- Description --}}
                         <div>
-                            <x-input-label for="description" :value="__('Description')" />
+                            <label for="description" class="input-label">{{ __('Description') }}</label>
                             <textarea
                                 id="description"
                                 name="description"
                                 rows="4"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500"
+                                class="input-field mt-1"
                             >{{ old('description', $task->description) }}</textarea>
                             <x-input-error class="mt-2" :messages="$errors->get('description')" />
                         </div>
-                    @else
-                        <div class="rounded-md border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            {{-- Status --}}
                             <div>
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Title') }}</p>
-                                <p class="text-sm text-gray-900 dark:text-gray-100">{{ $task->title }}</p>
+                                <label for="status" class="input-label">{{ __('Status') }} <span class="text-rose-500">*</span></label>
+                                <select id="status" name="status" class="input-field mt-1" required>
+                                    <option value="pending" @selected(old('status', $task->status) === 'pending')>{{ __('Pending') }}</option>
+                                    <option value="in_progress" @selected(old('status', $task->status) === 'in_progress')>{{ __('In Progress') }}</option>
+                                    <option value="done" @selected(old('status', $task->status) === 'done')>{{ __('Done') }}</option>
+                                </select>
+                                <x-input-error class="mt-2" :messages="$errors->get('status')" />
                             </div>
+
+                            {{-- Deadline --}}
                             <div>
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Description') }}</p>
-                                <p class="text-sm text-gray-900 dark:text-gray-100">{{ $task->description ?: __('No description') }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Created by') }}</p>
-                                <p class="text-sm text-gray-900 dark:text-gray-100">{{ $task->creator?->name ?? __('Unknown') }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Category') }}</p>
-                                <p class="text-sm text-gray-900 dark:text-gray-100">{{ $task->category?->name ?? __('No Category') }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Deadline') }}</p>
-                                <p class="text-sm text-gray-900 dark:text-gray-100">{{ $task->deadline ?? __('No Deadline') }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Team') }}</p>
-                                <p class="text-sm text-gray-900 dark:text-gray-100">{{ $task->team?->name ?? __('No Team') }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ __('Assigned to') }}</p>
-                                <p class="text-sm text-gray-900 dark:text-gray-100">{{ $task->assignee?->name ?? __('Unassigned') }}</p>
+                                <label for="deadline" class="input-label">{{ __('Deadline') }}</label>
+                                <input
+                                    id="deadline"
+                                    name="deadline"
+                                    type="date"
+                                    value="{{ old('deadline', $task->deadline) }}"
+                                    class="input-field mt-1"
+                                >
+                                <x-input-error class="mt-2" :messages="$errors->get('deadline')" />
                             </div>
                         </div>
-                    @endif
 
-                    <div>
-                        <x-input-label for="status" :value="__('Status')" />
-                        <select
-                            id="status"
-                            name="status"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500"
-                            required
-                            @if (! $canEditFull) autofocus @endif
-                        >
-                            <option value="pending" @selected(old('status', $task->status) === 'pending')>Pending</option>
-                            <option value="in_progress" @selected(old('status', $task->status) === 'in_progress')>In Progress</option>
-                            <option value="done" @selected(old('status', $task->status) === 'done')>Done</option>
-                        </select>
-                        <x-input-error class="mt-2" :messages="$errors->get('status')" />
-                    </div>
-
-                    @if ($canEditFull)
+                        {{-- Category --}}
                         <div>
-                            <x-input-label for="deadline" :value="__('Deadline')" />
-                            <x-text-input id="deadline" name="deadline" type="date" class="mt-1 block w-full" :value="old('deadline', $task->deadline)" />
-                            <x-input-error class="mt-2" :messages="$errors->get('deadline')" />
-                        </div>
-
-                        <div>
-                            <x-input-label for="category_id" :value="__('Category')" />
-                            <select
-                                id="category_id"
-                                name="category_id"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="">No Category</option>
+                            <label for="category_id" class="input-label">{{ __('Category') }}</label>
+                            <select id="category_id" name="category_id" class="input-field mt-1">
+                                <option value="">{{ __('No Category') }}</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category->id }}" @selected((string) old('category_id', $task->category_id) === (string) $category->id)>
                                         {{ $category->name }}
@@ -107,25 +91,108 @@
                             </select>
                             <x-input-error class="mt-2" :messages="$errors->get('category_id')" />
                         </div>
-
-                        @include('tasks.partials.team-assign-fields', [
-                            'teams' => $teams,
-                            'currentUserId' => $currentUserId,
-                            'selectedTeamId' => $task->team_id,
-                            'selectedAssignTo' => $task->assign_to,
-                        ])
-                    @endif
-
-                    <div class="flex items-center gap-3">
-                        <x-primary-button>
-                            {{ $canEditFull ? __('Update Task') : __('Update Status') }}
-                        </x-primary-button>
-                        <a href="{{ route('tasks.index') }}" class="text-sm text-gray-600 dark:text-gray-300 hover:underline">
-                            {{ __('Back to Tasks') }}
-                        </a>
                     </div>
-                </form>
+                </div>
+
+                {{-- Full Edit: Assignment --}}
+                <div class="card p-6">
+                    <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 mb-5 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        {{ __('Assignment') }}
+                    </h2>
+
+                    @include('tasks.partials.team-assign-fields', [
+                        'teams' => $teams,
+                        'currentUserId' => $currentUserId,
+                        'selectedTeamId' => $task->team_id,
+                        'selectedAssignTo' => $task->assign_to,
+                    ])
+                </div>
+            @else
+                {{-- Status-only Mode: Read-only task details --}}
+                <div class="card p-6">
+                    <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 mb-5 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        {{ __('Task Information') }}
+                    </h2>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div class="sm:col-span-2">
+                            <p class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">{{ __('Title') }}</p>
+                            <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">{{ $task->title }}</p>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <p class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">{{ __('Description') }}</p>
+                            <p class="text-sm text-slate-700 dark:text-slate-300">{{ $task->description ?: __('No description') }}</p>
+                        </div>
+
+                        <div>
+                            <p class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">{{ __('Created by') }}</p>
+                            <div class="flex items-center gap-2">
+                                @if($task->creator)
+                                    <x-avatar :name="$task->creator->name" size="xs" />
+                                @endif
+                                <p class="text-sm text-slate-700 dark:text-slate-300">{{ $task->creator?->name ?? __('Unknown') }}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">{{ __('Category') }}</p>
+                            <p class="text-sm text-slate-700 dark:text-slate-300">{{ $task->category?->name ?? __('No Category') }}</p>
+                        </div>
+
+                        <div>
+                            <p class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">{{ __('Deadline') }}</p>
+                            <p class="text-sm text-slate-700 dark:text-slate-300">{{ $task->deadline ?? __('No Deadline') }}</p>
+                        </div>
+
+                        <div>
+                            <p class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">{{ __('Team') }}</p>
+                            <p class="text-sm text-slate-700 dark:text-slate-300">{{ $task->team?->name ?? __('No Team') }}</p>
+                        </div>
+
+                        <div>
+                            <p class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">{{ __('Assigned to') }}</p>
+                            <div class="flex items-center gap-2">
+                                @if($task->assignee)
+                                    <x-avatar :name="$task->assignee->name" size="xs" />
+                                @endif
+                                <p class="text-sm text-slate-700 dark:text-slate-300">{{ $task->assignee?->name ?? __('Unassigned') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Status Update Card --}}
+                <div class="card p-6 border-l-4 border-rose-500 dark:border-rose-400">
+                    <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        {{ __('Update Status') }}
+                    </h2>
+
+                    <div>
+                        <label for="status" class="input-label">{{ __('Status') }} <span class="text-rose-500">*</span></label>
+                        <select id="status" name="status" class="input-field mt-1" required autofocus>
+                            <option value="pending" @selected(old('status', $task->status) === 'pending')>{{ __('Pending') }}</option>
+                            <option value="in_progress" @selected(old('status', $task->status) === 'in_progress')>{{ __('In Progress') }}</option>
+                            <option value="done" @selected(old('status', $task->status) === 'done')>{{ __('Done') }}</option>
+                        </select>
+                        <x-input-error class="mt-2" :messages="$errors->get('status')" />
+                    </div>
+                </div>
+            @endif
+
+            {{-- Form Actions --}}
+            <div class="flex items-center gap-4">
+                <button type="submit" class="btn-primary inline-flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    {{ $canEditFull ? __('Update Task') : __('Update Status') }}
+                </button>
+                <a href="{{ route('tasks.index') }}" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+                    {{ __('Cancel') }}
+                </a>
             </div>
-        </div>
+        </form>
     </div>
 </x-app-layout>
